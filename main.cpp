@@ -79,8 +79,6 @@ int main(int argc, const char* argv[]) {
     DATE_T* col_o_orderdate[HORIZ_PART];
     int o_nrow_part[HORIZ_PART];
 
-    MONEY_T* part_result[HORIZ_PART];
-
     FILE* f_l_orderkey = fo(in_dir + "/l_orderkey.dat");
     FILE* f_l_extendedprice = fo(in_dir + "/l_extendedprice.dat");
     FILE* f_l_discount = fo(in_dir + "/l_discount.dat");
@@ -197,10 +195,7 @@ int main(int argc, const char* argv[]) {
         l_nrow_part[i] = j;
         if (debug_level >= Q5_DEBUG)
             printf("DEBUG: BUF_L_DEPTH=%ld, part %d: %d (%ld slots unused)\n", BUF_L_DEPTH, i, j, BUF_L_DEPTH - j);
-
-        // alloc result
-        part_result[i] = aligned_alloc<MONEY_T>(2);
-        memset(part_result[i], 0, sizeof(MONEY_T) * 2);
+    
     }
 
     fclose(f_l_orderkey);
@@ -209,10 +204,10 @@ int main(int argc, const char* argv[]) {
     fclose(f_o_orderkey);
     fclose(f_o_orderdate);
 
-    std::cout << "Lineitem " << l_nrow << " rows\n"
-              << "Orders " << o_nrow << " rows\n";
+    std::cout << "\nLineitem " << l_nrow << " rows\n"
+              << "\nOrders " << o_nrow << " rows\n";
 
-    std::cout << "Lineitem buffer has been loaded.\n";
+    std::cout << "\nLineitem buffer has been loaded.\n";
     std::cout << "Order buffer has been loaded.\n";
 
     if (overflow) {
@@ -220,26 +215,52 @@ int main(int argc, const char* argv[]) {
         return 1;
     }
 
-    // Create Hash Table object
-    HashTable myHashTable(l_nrow);
+    /**
+     * Canonical Hash Join
+     * 
+     * Relation R (Order) is used to build the Hash Table.
+     * Relation S (Lineitem) is used to probe the Hash Table.
+     * For each tuple in S, we probe for a matching key in the corresponding bucket of the hash table.
+    */
 
-    // Insert data into Hash Table
+    // Create Hash Table object
+    HashTable myHashTable(o_nrow);
+
+    // Insert R tuples into Hash Table
     for (int i = 0; i < HORIZ_PART; ++i) {
-        for (int j = 0; j < l_nrow_part[i]; ++j) {
-            myHashTable.insert(col_l_orderkey[i][j], col_l_extendedprice[i][j]);
+        for (int j = 0; j < o_nrow_part[i]; ++j) {
+            myHashTable.insert(col_o_orderkey[i][j], col_o_orderdate[i][j]);
         }
     }
 
+    std::cout << "\nHash Table size:" << myHashTable.getSize() << std::endl;
+
+    std::cout << "Hash Table count:" << myHashTable.getCount() << std::endl;
+
+    int matching_keys = 0; 
+
+    // Probe S tuples against the Hash Table
+    for (int i = 0; i < HORIZ_PART; ++i) {
+        for (int j = 0; j < l_nrow_part[i]; ++j) {
+            int value = myHashTable.search(col_l_orderkey[i][j]);
+            if (value != -1) {
+                ++matching_keys;
+            }
+        }
+    }
+
+    std::cout << "\nMatching keys: " << matching_keys << "\n\n" << std::endl;
+
     // Calculate histogram
-    myHashTable.calculateHistogram();
+    //myHashTable.calculateHistogram();
 
     // Calculate prefix sum
-    myHashTable.calculatePrefixSum();    
+    //myHashTable.calculatePrefixSum();    
 
     // Get histogram and prefix sum
-    std::vector<int>& histogram = myHashTable.getHistogram();
+    //std::vector<int>& histogram = myHashTable.getHistogram();
 
-    std::vector<int>& prefixSum = myHashTable.getPrefixSum();
+    //std::vector<int>& prefixSum = myHashTable.getPrefixSum();
 
     /*
     // Print histogram
@@ -253,9 +274,9 @@ int main(int argc, const char* argv[]) {
     }
     */
 
-    std::cout << "Histogram size: " << histogram.size() << std::endl;
+    //std::cout << "Histogram size: " << histogram.size() << std::endl;
 
-    std::cout << "Prefix sum size: " << prefixSum.size() << std::endl;
+    //std::cout << "Prefix sum size: " << prefixSum.size() << std::endl;
 
     return 0;
 }
