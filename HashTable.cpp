@@ -24,6 +24,7 @@ uint32_t HashTable::hashFunction(int key) {
 
 void HashTable::calculateHistogram() {
     histogram.clear();
+    histogram.resize(size);
     for (const auto& bucket : array) {
         histogram.push_back(bucket.size());
     }
@@ -44,8 +45,8 @@ void HashTable::insert(int key, int value) {
     array[index].push_back({key, value});
     count++;
 
-    // Resize if load factor exceeds a threshold (e.g., 0.7)
-    if (static_cast<double>(count) / size > 0.7) {
+    // Resize if load factor exceeds a threshold (e.g., 0.85)
+    if (static_cast<double>(count) / size > 0.85) {
         int newSize = size * 2;
         array.resize(newSize);
         size = newSize;
